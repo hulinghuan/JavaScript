@@ -1,85 +1,382 @@
-﻿// Get all the keys from document
-var keys = document.querySelectorAll('#calculator span');
-var operators = ['+', '-', 'x', '÷'];
-var decimalAdded = false;
+var buttons = document.querySelectorAll('#calculator .buttons span');
+/* Definition of the Operator Class */
 
-// Add onclick event to all the keys and perform operations
-for (var i = 0; i < keys.length; i++) {
-    keys[i].onclick = function (e) {
-        // Get the input and button values
-        var input = document.querySelector('.screen');
-        var inputVal = input.innerHTML;
-        var btnVal = this.innerHTML;
+function Operator(operatorType) {
+    this._operatorType = operatorType;
+    this._operatorPrecedence = 0;
+    
+    if((operatorType == '-') || (operatorType == '+')) {
+        this._operatorPrecedence = 2;
+        return;
+    }
+    if((operatorType == '*') || (operatorType == '/')) {
+        this._operatorPrecedence = 3;
+        return;
+    }
+    if((operatorType == '^')) {
+        this._operatorPrecedence = 4;
+        return;
+    }
+}
 
-        // Now, just append the key values (btnValue) to the input string and finally use javascript's eval function to get the result
-        // If clear key is pressed, erase everything
-        if (btnVal == 'C') {
-            input.innerHTML = '';
-            decimalAdded = false;
-        }
+Operator.prototype.get_operatorPrecedence = function(){
+    return this._operatorPrecedence;
+}
+Operator.prototype.get_operatorType = function() {
+    return this._operatorType;
+}
 
-            // If eval key is pressed, calculate and display the result
-        else if (btnVal == '=') {
-            var equation = inputVal;
-            var lastChar = equation[equation.length - 1];
+/* Definition of the Calculator Class */
+function Calculator() {
+    this._infixArray = [];
+    this._reversePolishArray = [];
+    this._calculateStack = [];
+    this._inputExpression = [];
+}
 
-            // Replace all instances of x and ÷ with * and / respectively. This can be done easily using regex and the 'g' tag which will replace all instances of the matched character/substring
-            equation = equation.replace(/x/g, '*').replace(/÷/g, '/');
-
-            // Final thing left to do is checking the last character of the equation. If it's an operator or a decimal, remove it
-            if (operators.indexOf(lastChar) > -1 || lastChar == '.')
-                equation = equation.replace(/.$/, '');
-
-            if (equation)
-                input.innerHTML = eval(equation);
-
-            decimalAdded = false;
-        }
-
-            // Basic functionality of the calculator is complete. But there are some problems like 
-            // 1. No two operators should be added consecutively.
-            // 2. The equation shouldn't start from an operator except minus
-            // 3. not more than 1 decimal should be there in a number
-
-            // We'll fix these issues using some simple checks
-
-            // indexOf works only in IE9+
-        else if (operators.indexOf(btnVal) > -1) {
-            // Operator is clicked
-            // Get the last character from the equation
-            var lastChar = inputVal[inputVal.length - 1];
-
-            // Only add operator if input is not empty and there is no operator at the last
-            if (inputVal != '' && operators.indexOf(lastChar) == -1)
-                input.innerHTML += btnVal;
-
-                // Allow minus if the string is empty
-            else if (inputVal == '' && btnVal == '-')
-                input.innerHTML += btnVal;
-
-            // Replace the last operator (if exists) with the newly pressed operator
-            if (operators.indexOf(lastChar) > -1 && inputVal.length > 1) {
-                // Here, '.' matches any character while $ denotes the end of string, so anything (will be an operator in this case) at the end of string will get replaced by new operator
-                input.innerHTML = inputVal.replace(/.$/, btnVal);
+Calculator.prototype.calculate = function() /*throw Exception*/{
+    var cStackLength = this._reversePolishArray.length;
+    var operator = '';
+    var firstNum = '';
+    var secondNum = '';
+    var fn = 0;
+    var sn = 0;
+    var result = 0;
+    
+    for(var i = 0; i < cStackLength; i++) {
+        this._calculateStack.push(this._reversePolishArray[i]);
+        if(this.isOperator(this._calculateStack[this._calculateStack.length - 1]) == true) {
+            operator = this._calculateStack.pop();
+            secondNum = this._calculateStack.pop();
+            firstNum = this._calculateStack.pop();
+            if(this.isOperator(firstNum) == true || this.isOperator(secondNum)) {
+                throw Exception;
             }
-
-            decimalAdded = false;
-        }
-
-            // Now only the decimal problem is left. We can solve it easily using a flag 'decimalAdded' which we'll set once the decimal is added and prevent more decimals to be added once it's set. It will be reset when an operator, eval or clear key is pressed.
-        else if (btnVal == '.') {
-            if (!decimalAdded) {
-                input.innerHTML += btnVal;
-                decimalAdded = true;
+            fn = parseFloat(firstNum);
+            sn = parseFloat(secondNum);
+            if(operator == '+') {
+                result = fn + sn;
+                result += '';
+                this._calculateStack.push(result);
+                operator = '';
+                secondNum = '';
+                firstNum = '';
+                continue;
+            }
+            if(operator == '-') {
+                result = fn - sn;
+                result += '';
+                this._calculateStack.push(result);
+                operator = '';
+                secondNum = '';
+                firstNum = '';
+                continue;
+            }
+            if(operator == '*') {
+                result = fn * sn;
+                result += '';
+                this._calculateStack.push(result);
+                operator = '';
+                secondNum = '';
+                firstNum = '';
+                continue;
+            }
+            if(operator == '/') {
+                result = fn / sn;
+                result += '';
+                this._calculateStack.push(result);
+                operator = '';
+                secondNum = '';
+                firstNum = '';
+                continue;
             }
         }
+        
+    }
+    //check if there are invalid parentheses
+    if(operator != '') {
+        throw Exception;
+    }
+    return result;
+}
 
-            // if any other key is pressed, just append it
-        else {
-            input.innerHTML += btnVal;
+Calculator.prototype.infixToRPN = function() /*throw Exception*/{
+    var pushBuffer = '';
+    var operatorStk = [];
+    var infixStkLength = this._infixArray.length;
+    
+    this._reversePolishArray.push('0');
+    for(var i = 0; i < infixStkLength; i++) {
+        pushBuffer = this._infixArray[i];
+        if(!this.isOperator(pushBuffer) && !this.isParenthese(pushBuffer) == true) {
+            this._reversePolishArray.push(pushBuffer);
+            pushBuffer = '';
         }
+        if(this.isOperator(pushBuffer) == true) {
+            if(operatorStk.length == 0) {
+                operatorStk.push(pushBuffer);
+                pushBuffer = '';
+            } else {
+                var stkTop = new Operator(operatorStk[operatorStk.length - 1]);
+                var newOperator = new Operator(pushBuffer);
+                if(newOperator.get_operatorPrecedence() > stkTop.get_operatorPrecedence()) {
+                    operatorStk.push(pushBuffer);
+                    pushBuffer = '';
+                } else {
+                    this._reversePolishArray.push(operatorStk.pop());
+                    operatorStk.push(pushBuffer);
+                    pushBuffer = '';
+                }
+            }
+        }
+        if(this.isParenthese(pushBuffer) == true) {
+            if(pushBuffer == '(') {
+                operatorStk.push(pushBuffer);
+                pushBuffer = '';
+            }
+            if(pushBuffer == ')') {
+                while(true) {
+                    pushBuffer = operatorStk.pop();
+                    if(!(pushBuffer == '(')) {
+                        this._reversePolishArray.push(pushBuffer);
+                    } else {
+                        pushBuffer = '';
+                        break;
+                    }
+                    pushBuffer = '';
+                }
+            }
+        }
+    }
+    if(operatorStk.length != 0) {
+        var operatorStkSize = operatorStk.length;
+        for(var i = 0; i < operatorStkSize; i++) {
+            this._reversePolishArray.push(operatorStk.pop());
+        }
+    }
+    this._reversePolishArray.push('+');
+}
 
-        // prevent page jumps
+Calculator.prototype.printRPA = function() {
+    console.log('This is the this._reversePolishArray:');
+    for(var i = 0; i < this._reversePolishArray.length; i++) {
+        console.log(this._reversePolishArray[i]);
+    }
+}
+
+Calculator.prototype.formalExpression = function(expression) {
+    var expTemp = [];
+    for(var i = 0; i < expression.length; i++) {
+        expTemp.push(expression[i]);
+    }
+    for(var i = 0; i < expression.length; i++) {
+        if(expTemp[i] == 'x') {
+            expTemp.splice(i, 1, '*');
+            continue;
+        }
+        if(expTemp[i] == '÷') {
+            expTemp.splice(i, 1, '/');
+            continue;
+        }
+    }
+    this._inputExpression = expTemp;
+}
+
+Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
+    var charInfixExp = this._inputExpression;
+    var NumBuffer = '';
+    var PNBuffer = '';
+    var needPush = 0;
+    var fPCount = 0;
+    var sPCount = 0;
+    var numCount = 0;
+    
+    for( var i = 0; i < charInfixExp.length; i++) {
+        if(this.isSpace(charInfixExp[i]) == true) {
+            continue;
+        }
+        if(this.isOperator(charInfixExp[i]) || this.isParenthese(charInfixExp[i])) {
+            charInfixExp[i];
+            if(this.isOperator(charInfixExp[i])) {
+                if(NumBuffer == '') {
+                    if(needPush == 1) {
+                        this._infixArray.push(charInfixExp[i]);
+                        needPush = 0;
+                        continue;
+                    } else {
+                        PNBuffer = '' + charInfixExp[i];
+                        needPush = 1;
+                        continue;
+                    }
+                } else {
+                    if(PNBuffer != '') {
+                        if(PNBuffer == '+') {
+                            this._infixArray.push(NumBuffer);
+                            NumBuffer = '';
+                            PNBuffer = '';
+                            this._infixArray.push(charInfixExp[i]);
+                            continue;
+                        }
+                        if(PNBuffer == '-') {
+                            this._infixArray.push('-' + NumBuffer);
+                            NumBuffer = '';
+                            PNBuffer = '';
+                            this._infixArray.push(charInfixExp[i]);
+                            continue;
+                        }
+                    } else {
+                        this._infixArray.push(NumBuffer);
+                        this._infixArray.push(charInfixExp[i]);
+                        NumBuffer = '';
+                        continue;
+                    }
+                }
+            }
+            if(this.isParenthese(charInfixExp[i])) {
+                if(charInfixExp[i] == '(') {
+                    this._infixArray.push('(');
+                    continue;
+                }
+                if(charInfixExp[i] == ')') {
+                    if(PNBuffer != '') {
+                        if(NumBuffer != '') {
+                            if(PNBuffer == '+') {
+                                this._infixArray.push(NumBuffer);
+                                NumBuffer = '';
+                                PNBuffer = '';
+                                this._infixArray.push(')');
+                                needPush = 1;
+                                continue;
+                            }
+                            if(PNBuffer == '-') {
+                                this._infixArray.push('-' + NumBuffer);
+                                NumBuffer = '';
+                                PNBuffer = '';
+                                this._infixArray.push(')');
+                                needPush = 1;
+                                continue;
+                            }
+                        } else {
+                            throw Exception;
+                        }
+                    } else {
+                        if(NumBuffer != '') {
+                            this._infixArray.push(NumBuffer);
+                        }
+                        this._infixArray.push(')');
+                        NumBuffer = '';
+                        needPush = 1;
+                        continue;
+                    }
+                }
+            }
+        } else {
+            NumBuffer += charInfixExp[i];
+        }
+    }
+    if(NumBuffer != '') {
+        if(PNBuffer != '') {
+            if(PNBuffer == '+') {
+                this._infixArray.push(NumBuffer);
+                NumBuffer = '';
+                PNBuffer = '';
+                return;
+            }
+            if(PNBuffer == '-') {
+                _infixArray.push('-' + NumBuffer);
+                NumBuffer = '';
+                PNBuffer = '';
+                return;
+            }
+        } else {
+            this._infixArray.push(NumBuffer);
+            NumBuffer = '';
+            return;
+        }
+    }
+}
+
+Calculator.prototype.printInfixArray = function() {
+    var stkLength = this._infixArray.length;
+    console.log('This is the _infixArray');
+    for(var i = 0; i < stkLength; i++) {
+        console.log(this._infixArray[i]);
+    }
+}
+
+Calculator.prototype.isSpace = function(input) {
+    if(input == ' ') {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+Calculator.prototype.isParenthese = function(input) {
+    if(input == '(' || input == ')') {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+Calculator.prototype.isOperator = function(input) {
+    if(input == '+' || input == '-' || input == '*' || input == '/') {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+Calculator.prototype.reset = function() {
+    this._infixArray = [];
+    this._reversePolishArray = [];
+}
+
+
+
+
+/* End of the Calculator Class Difinition */
+
+/* Main function*/
+var clt = new Calculator();
+var calResult;
+/*var inputString = '3+5*8';
+clt.initialInfixArray(inputString);
+clt.printInfixArray();
+clt.infixToRPN();
+clt.printRPA();
+console.log('The calculation result = ');
+console.log(clt.calculate());*/
+
+/* End of the Main function*/
+
+/* Add Listener to all buttons */
+for(var i = 0; i < buttons.length; i++) {
+    buttons[i].onclick = function(e) {
+        var btnValue = this.innerHTML;
+        var screen = document.querySelector('.screen')
+        var screenContent = screen.innerHTML;
+        
+        if(btnValue == 'C') {
+            screen.innerHTML = '';
+            clt.reset();
+            return;
+        }
+        if(btnValue == '←') {
+            screen.innerHTML = screenContent.substring(0,screenContent.length - 1);
+            return;
+        }
+        if(btnValue == '=') {
+            clt.formalExpression(screen.innerHTML)
+            clt.initialInfixArray();
+            clt.infixToRPN();
+            calResult = clt.calculate();
+            screen.innerHTML = calResult;
+            clt.reset();
+            return;
+        }
+        screen.innerHTML += btnValue;
         e.preventDefault();
     }
 }

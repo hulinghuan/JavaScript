@@ -215,6 +215,7 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
                             NumBuffer = '';
                             PNBuffer = '';
                             this._infixArray.push(charInfixExp[i]);
+                            needPush = 0;
                             continue;
                         }
                         if(PNBuffer == '-') {
@@ -222,6 +223,7 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
                             NumBuffer = '';
                             PNBuffer = '';
                             this._infixArray.push(charInfixExp[i]);
+                            needPush = 0;
                             continue;
                         }
                     } else {
@@ -283,7 +285,7 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
                 return;
             }
             if(PNBuffer == '-') {
-                _infixArray.push('-' + NumBuffer);
+                this._infixArray.push('-' + NumBuffer);
                 NumBuffer = '';
                 PNBuffer = '';
                 return;
@@ -371,8 +373,14 @@ for(var i = 0; i < buttons.length; i++) {
             clt.formalExpression(screen.innerHTML)
             clt.initialInfixArray();
             clt.infixToRPN();
-            calResult = clt.calculate();
-            screen.innerHTML = calResult;
+            try {
+                calResult = clt.calculate();
+                screen.innerHTML = calResult;
+            } catch(e) {
+                screen.innerHTML = 'Error';
+            }
+            
+            
             clt.reset();
             return;
         }

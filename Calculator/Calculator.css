@@ -76,7 +76,7 @@ html {
         	-ms-user-select: none;
 	
 	        /* Smoothing out hover and active states using css3 transitions */
-	        transition: all 0.2s ease;
+	        transition: all 0.1s ease;
 
         }
 

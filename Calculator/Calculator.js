@@ -34,6 +34,27 @@ function Calculator() {
     this._inputExpression = [];
 }
 
+Calculator.prototype.checkDemical = function() {
+    var RPA = this._reversePolishArray;
+    var RPAUnit = '';
+    var fI = 0;     //first index of demical in RPN unit
+    var lI = 0;     //last index of demical in RPN unit
+
+    for(var i = 0; i < this._reversePolishArray.length ; i ++) {
+        RPAUnit = RPA[i];
+        fI = RPAUnit.indexOf('.');
+        lI = RPAUnit.lastIndexOf('.');
+        if(fI != lI) {
+            throw 'Invalid Input';
+        }
+        if(fI == lI && fI != -1) {
+            if(fI == RPAUnit.length - 1) {
+                throw 'Invalid Input';
+            } 
+        }
+    }
+}
+
 Calculator.prototype.calculate = function() /*throw Exception*/{
     var cStackLength = this._reversePolishArray.length;
     var operator = '';
@@ -43,14 +64,19 @@ Calculator.prototype.calculate = function() /*throw Exception*/{
     var sn = 0;
     var result = 0;
     
+    this.checkDemical();
+
     for(var i = 0; i < cStackLength; i++) {
         this._calculateStack.push(this._reversePolishArray[i]);
         if(this.isOperator(this._calculateStack[this._calculateStack.length - 1]) == true) {
+            if(this._calculateStack.length < 3) {
+                throw 'Invalid Input';
+            }
             operator = this._calculateStack.pop();
             secondNum = this._calculateStack.pop();
             firstNum = this._calculateStack.pop();
             if(this.isOperator(firstNum) == true || this.isOperator(secondNum)) {
-                throw Exception;
+                throw 'Invalid Input';
             }
             fn = parseFloat(firstNum);
             sn = parseFloat(secondNum);
@@ -95,7 +121,7 @@ Calculator.prototype.calculate = function() /*throw Exception*/{
     }
     //check if there are invalid parentheses
     if(operator != '') {
-        throw Exception;
+        throw 'Invalid Input';
     }
     return result;
 }
@@ -105,7 +131,7 @@ Calculator.prototype.infixToRPN = function() /*throw Exception*/{
     var operatorStk = [];
     var infixStkLength = this._infixArray.length;
     
-    this._reversePolishArray.push('0');
+    //this._reversePolishArray.push('0');
     for(var i = 0; i < infixStkLength; i++) {
         pushBuffer = this._infixArray[i];
         if(!this.isOperator(pushBuffer) && !this.isParenthese(pushBuffer) == true) {
@@ -144,6 +170,9 @@ Calculator.prototype.infixToRPN = function() /*throw Exception*/{
                         break;
                     }
                     pushBuffer = '';
+                    if(operatorStk == '') {
+                        throw 'Invalid Input';
+                    }
                 }
             }
         }
@@ -154,7 +183,7 @@ Calculator.prototype.infixToRPN = function() /*throw Exception*/{
             this._reversePolishArray.push(operatorStk.pop());
         }
     }
-    this._reversePolishArray.push('+');
+    //this._reversePolishArray.push('+');
 }
 
 Calculator.prototype.printRPA = function() {
@@ -170,7 +199,7 @@ Calculator.prototype.formalExpression = function(expression) {
         expTemp.push(expression[i]);
     }
     for(var i = 0; i < expression.length; i++) {
-        if(expTemp[i] == 'x') {
+        if(expTemp[i] == '×') {
             expTemp.splice(i, 1, '*');
             continue;
         }
@@ -190,8 +219,11 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
     var fPCount = 0;
     var sPCount = 0;
     var numCount = 0;
-    
-    for( var i = 0; i < charInfixExp.length; i++) {
+
+    // 0,+ is for checking parentheses purpose.
+    this._infixArray.push('0');
+    this._infixArray.push('+');
+    for(var i = 0; i < charInfixExp.length; i++) {
         if(this.isSpace(charInfixExp[i]) == true) {
             continue;
         }
@@ -226,6 +258,7 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
                             needPush = 0;
                             continue;
                         }
+                        throw 'Invalid Input';
                     } else {
                         this._infixArray.push(NumBuffer);
                         this._infixArray.push(charInfixExp[i]);
@@ -236,6 +269,21 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
             }
             if(this.isParenthese(charInfixExp[i])) {
                 if(charInfixExp[i] == '(') {
+
+                    if(PNBuffer != '') {
+                        throw 'Invalid Input';
+                    }
+                    if(NumBuffer != '') {
+                        this._infixArray.push(NumBuffer);
+                        NumBuffer = '';
+                    }
+                    if(this._infixArray.length > 0) {
+                        if(this._infixArray[this._infixArray.length - 1] != '(' &&
+                            !this.isOperator(this._infixArray[this._infixArray.length - 1])
+                            ) {
+                            throw 'Invalid Input';
+                        }
+                    }
                     this._infixArray.push('(');
                     continue;
                 }
@@ -259,12 +307,23 @@ Calculator.prototype.initialInfixArray = function()/*throw Exception*/{
                                 continue;
                             }
                         } else {
-                            throw Exception;
+                            throw 'Invalid Input';
                         }
                     } else {
                         if(NumBuffer != '') {
                             this._infixArray.push(NumBuffer);
                         }
+
+                        if(this._infixArray[this._infixArray.length - 1] == ')' ||
+                            (!this.isParenthese(this._infixArray[this._infixArray.length - 1]) &&
+                                !this.isOperator(this._infixArray[this._infixArray.length - 1]) &&
+                                this._infixArray[this._infixArray.length - 1] != '.'
+                                )) {
+                                
+                            } else {
+                                throw 'Invalid Input';
+                            }
+
                         this._infixArray.push(')');
                         NumBuffer = '';
                         needPush = 1;
@@ -333,6 +392,8 @@ Calculator.prototype.isOperator = function(input) {
 Calculator.prototype.reset = function() {
     this._infixArray = [];
     this._reversePolishArray = [];
+    this._calculateStack = [];
+    this._inputExpression = [];
 }
 
 
@@ -341,6 +402,13 @@ Calculator.prototype.reset = function() {
 /* End of the Calculator Class Difinition */
 
 /* Main function*/
+function isTooBigF(calResult) {
+    if(calResult.indexOf('e') == -1) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
 var clt = new Calculator();
 var calResult;
 /*var inputString = '3+5*8';
@@ -352,39 +420,92 @@ console.log('The calculation result = ');
 console.log(clt.calculate());*/
 
 /* End of the Main function*/
+var screen = document.querySelector('.screen');
+screen.innerHTML = '0';
+var isResultExist = 0;
+var isTooBig = 0;
 
 /* Add Listener to all buttons */
 for(var i = 0; i < buttons.length; i++) {
     buttons[i].onclick = function(e) {
+        
         var btnValue = this.innerHTML;
         var screen = document.querySelector('.screen')
         var screenContent = screen.innerHTML;
         
         if(btnValue == 'C') {
-            screen.innerHTML = '';
+            screen.innerHTML = '0';
             clt.reset();
             return;
         }
         if(btnValue == '←') {
-            screen.innerHTML = screenContent.substring(0,screenContent.length - 1);
+            if(screenContent.length > 1) {
+                screen.innerHTML = screenContent.substring(0,screenContent.length - 1);
+                return;
+            }
+            if(screenContent.length == 1) {
+                screen.innerHTML = '0';
+            }
             return;
         }
         if(btnValue == '=') {
-            clt.formalExpression(screen.innerHTML)
-            clt.initialInfixArray();
-            clt.infixToRPN();
-            try {
+            clt.formalExpression(screen.innerHTML);
+            try{
+                clt.initialInfixArray();
+                clt.infixToRPN();
                 calResult = clt.calculate();
-                screen.innerHTML = calResult;
+                if(calResult == 'NaN') {
+                    screen.innerHTML = 'Invalid Input';
+                } else {
+                    screen.innerHTML = calResult;
+                }
+                isTooBig = isTooBigF(calResult);
+                isResultExist = 1;
             } catch(e) {
-                screen.innerHTML = 'Error';
+                screen.innerHTML = e;
             }
-            
-            
             clt.reset();
             return;
         }
-        screen.innerHTML += btnValue;
+        if(btnValue == 'x' || btnValue == '÷' || btnValue == '-' || btnValue == '+') {
+            if(isResultExist == 1)
+            {
+                isResultExist = 0;
+            }
+        } else {
+            if(isResultExist == 1){
+                screenContent = '0';
+                isResultExist = 0;
+            }
+        }
+        /* Remove the 0, Add new Number to Screen*/
+        if(screenContent == '0' && (btnValue != '+' && btnValue != '-' && btnValue != 'x' && btnValue != '÷' && btnValue != '.')) {
+            screen.innerHTML = '';
+        }
+        if(screen.innerHTML == 'Invalid Input') {
+            screen.innerHTML = '';
+        }
+        if(isTooBig == 1) {
+            if(btnValue != '+' && btnValue != '-' && btnValue != 'x' && btnValue != '÷' && btnValue != '.') {
+                screen.innerHTML = '';
+                isTooBig = 0;
+            } else {
+                screen.innerHTML = '0';
+                isTooBig = 0;
+            }
+        }
+        if(screen.innerHTML.length < 24) {
+            screen.innerHTML += btnValue;
+        }
         e.preventDefault();
     }
 }
+
+document.addEventListener('keydown', function(event) {
+    if(event.keyCode == 37) {
+        alert('Left was pressed');
+    }
+    else if(event.keyCode == 39) {
+        alert('Right was pressed');
+    }
+});
